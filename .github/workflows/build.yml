@@ -23,16 +23,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p sf app/src/main/jniLibs/arm64-v8a
-          for TAG in "" sf_17.1 sf_17 sf_16.1 sf_16; do
-            gh release download $TAG --repo official-stockfish/Stockfish --pattern '*android*' --dir sf --clobber && [ -n "$(ls sf)" ] && break
+          for TAG in "" sf_17.1 sf_17 sf_16.1; do
+            gh release download $TAG --repo official-stockfish/Stockfish --pattern '*android*arm*64*' --dir sf --clobber && [ -n "$(ls sf)" ] && break
           done
-          ls -la sf
           cd sf
+          for f in *.tar.gz *.tgz; do [ -e "$f" ] && tar -xzf "$f"; done
           for f in *.tar; do [ -e "$f" ] && tar -xf "$f"; done
           for f in *.zip; do [ -e "$f" ] && unzip -o "$f"; done
           cd ..
-          BIN=$(find sf -type f -name 'stockfish*armv8*' ! -name '*dotprod*' ! -name '*.tar' ! -name '*.zip' | head -n1)
-          [ -z "$BIN" ] && BIN=$(find sf -type f -name 'stockfish*armv8*' ! -name '*.tar' ! -name '*.zip' | head -n1)
+          # every 64-bit ARM program in the download
+          find sf -type f -exec file {} + | grep -i 'aarch64' | cut -d: -f1 > bins.txt
+          echo "ARM64 binaries found:"; cat bins.txt
+          # prefer the plain build that runs on any 64-bit phone
+          BIN=$(grep -viE 'dotprod|i8mm|sve' bins.txt | awk '{ print length, $0 }' | sort -n | head -n1 | cut -d' ' -f2-)
+          [ -z "$BIN" ] && BIN=$(head -n1 bins.txt)
           echo "Using: $BIN"
           cp "$BIN" app/src/main/jniLibs/arm64-v8a/libstockfish.so
       - name: Build
