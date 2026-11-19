@@ -1,0 +1,35 @@
+name: Build APK
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip project
+        run: for z in *.zip; do unzip -o "$z"; done
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+      - name: Get Stockfish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p sf app/src/main/jniLibs/arm64-v8a
+          gh release download --repo official-stockfish/Stockfish --pattern 'stockfish-android-armv8.tar' --dir sf
+          tar -xf sf/*.tar -C sf
+          cp "$(find sf -type f -name 'stockfish*' ! -name '*.tar' | head -n1)" app/src/main/jniLibs/arm64-v8a/libstockfish.so
+      - name: Build
+        run: gradle assembleDebug --no-daemon
+      - name: Publish APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          files: app/build/outputs/apk/debug/app-debug.apk
