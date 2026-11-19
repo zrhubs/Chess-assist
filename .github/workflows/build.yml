@@ -23,9 +23,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p sf app/src/main/jniLibs/arm64-v8a
-          gh release download --repo official-stockfish/Stockfish --pattern 'stockfish-android-armv8.tar' --dir sf
-          tar -xf sf/*.tar -C sf
-          cp "$(find sf -type f -name 'stockfish*' ! -name '*.tar' | head -n1)" app/src/main/jniLibs/arm64-v8a/libstockfish.so
+          for TAG in "" sf_17.1 sf_17 sf_16.1 sf_16; do
+            gh release download $TAG --repo official-stockfish/Stockfish --pattern '*android*' --dir sf --clobber && [ -n "$(ls sf)" ] && break
+          done
+          ls -la sf
+          cd sf
+          for f in *.tar; do [ -e "$f" ] && tar -xf "$f"; done
+          for f in *.zip; do [ -e "$f" ] && unzip -o "$f"; done
+          cd ..
+          BIN=$(find sf -type f -name 'stockfish*armv8*' ! -name '*dotprod*' ! -name '*.tar' ! -name '*.zip' | head -n1)
+          [ -z "$BIN" ] && BIN=$(find sf -type f -name 'stockfish*armv8*' ! -name '*.tar' ! -name '*.zip' | head -n1)
+          echo "Using: $BIN"
+          cp "$BIN" app/src/main/jniLibs/arm64-v8a/libstockfish.so
       - name: Build
         run: gradle assembleDebug --no-daemon
       - name: Publish APK
